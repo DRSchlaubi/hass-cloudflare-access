@@ -136,13 +136,11 @@ class HeaderAuthProvider(AuthProvider):
             raise InvalidAuthError("Not in trusted_proxies")
 
     async def validate_cf_token(self, token: str) -> str:
-        _LOGGER.debug(f'Received token {token}')
         header = jwt.get_unverified_header(token)
         if self.cf_url is None:
             raise "Please specify a CF team"
         kid = header['kid']
         jwk = await self.jwk_set.get_signing_key(kid)
-        _LOGGER.debug(f'Expected cf_urk: {self.cf_url}')
         decoded_jwt = jwt.decode(token, jwk.key, issuer=self.cf_url, audience=self.cf_aud, algorithms=[header['alg']])
         return decoded_jwt['email']
 
