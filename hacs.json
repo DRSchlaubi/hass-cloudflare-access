@@ -1,5 +1,5 @@
 {
-    "name": "Header Authentication",
+    "name": "Cloudflare Access Authentication",
     "render_readme": true,
     "homeassistant": "2021.5"
 }
