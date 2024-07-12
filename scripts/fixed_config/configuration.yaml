@@ -6,7 +6,9 @@ http:
   trusted_proxies:
     - 0.0.0.0/0
 auth_header:
-  username_header: X-authentik-username
+  use_cf_access: true
+  cf_team: schlaubi
+  cf_aud: 09ac6dbef247f5b375b67a284ab24f964c84f6347b2187dcb5228557602811cb
 
 logger:
   default: info

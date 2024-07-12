@@ -33,7 +33,7 @@ CONFIG_SCHEMA = vol.Schema(
                 ): cv.string,
                 vol.Optional("cf_team"): cv.string,
                 vol.Optional("cf_aud"): cv.string,
-                vol.Optional("use_cf_access"): cv.boolean,
+                vol.Optional("use_cf_access", default=False): cv.boolean,
                 vol.Optional("debug", default=False): cv.boolean,
             }
         )

@@ -57,7 +57,11 @@ class HeaderAuthProvider(AuthProvider):
     async def async_login_flow(self, context: Optional[Dict]) -> LoginFlow:
         """Return a flow to login."""
         assert context is not None
-        header_name = self.config[CONF_USERNAME_HEADER]
+        is_cf_access = self.config[CONF_CF_ACCESS]
+        if is_cf_access:
+            header_name = CF_ACCESS_HEADER
+        else:
+            header_name = self.config[CONF_USERNAME_HEADER]
         request = cast(Request, context.get("request"))
         if header_name not in request.headers:
             _LOGGER.info("No header set, returning empty flow")
@@ -68,10 +72,11 @@ class HeaderAuthProvider(AuthProvider):
                 cast(IPAddress, context.get("conn_ip_address")),
             )
 
-        if self.config[CONF_CF_ACCESS]:
-            remote_user = await self.validate_cf_token(request)
+        header = request.headers[header_name]
+        if is_cf_access:
+            remote_user = await self.validate_cf_token(header)
         else:
-            remote_user = request.headers[header_name].casefold()
+            remote_user = header.casefold()
         # Translate username to id
         users = await self.store.async_get_users()
         available_users = [
@@ -130,8 +135,7 @@ class HeaderAuthProvider(AuthProvider):
             _LOGGER.warning("Remote IP not in trusted proxies: %s", ip_addr)
             raise InvalidAuthError("Not in trusted_proxies")
 
-    async def validate_cf_token(self, request: Request) -> str:
-        token = request.headers[CF_ACCESS_HEADER]
+    async def validate_cf_token(self, token: str) -> str:
         _LOGGER.debug(f'Received token {token}')
         header = jwt.get_unverified_header(token)
         if self.cf_url is None:
