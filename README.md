@@ -30,6 +30,30 @@ logger:
         custom_components.auth_header: debug
 ```
 
+<details>
+<summary>Use with Cloudflare access</summary>
+
+**Note:** This uses the email address provided by cloudflare, therefore you need to rename your users to use the
+email provided by the identity provider of your Cloudflare Access Account
+
+- Set up a remotely managed cloudflare tunnel ([Example](https://github.com/brenner-tobias/addon-cloudflared/blob/main/cloudflared/DOCS.md#remote-tunnel-add-on-setup-advanced))
+- Set up a [Cloudflare Access Application](https://developers.cloudflare.com/cloudflare-one/applications/) for your Domain
+- Obtain your [AUD tag](https://developers.cloudflare.com/cloudflare-one/identity/authorization-cookie/validating-json/#get-your-aud-tag)
+
+```yaml
+http:
+    use_x_forwarded_for: true
+    trusted_proxies:
+        - 1.2.3.4/32 # This needs to be set to the IP of your reverse proxy
+auth_header:
+  use_cf_access: true
+  cf_team: <your Cloudflare Zero Trust team name>
+  cf_aud: <see step 3>
+```
+
+
+</details>
+
 Afterwards, restart Home Assistant.
 
 ![](./.github/demo.gif)

@@ -5,7 +5,9 @@ Allow access to users based on a header set by a reverse-proxy.
 import logging
 from typing import Any, Dict, List, Optional, cast
 
+import jwt
 from aiohttp.web import Request
+from homeassistant.auth.auth_store import AuthStore
 from homeassistant.auth.models import Credentials, User, UserMeta
 from homeassistant.auth.providers import AUTH_PROVIDERS, AuthProvider, LoginFlow
 from homeassistant.auth.providers.trusted_networks import (
@@ -13,9 +15,15 @@ from homeassistant.auth.providers.trusted_networks import (
     InvalidUserError,
     IPAddress,
 )
-from homeassistant.core import callback
+from homeassistant.core import callback, HomeAssistant
+
+from .async_py_jwk_client import PyJWKClient
 
 CONF_USERNAME_HEADER = "username_header"
+CONF_CF_TEAM = "cf_team"
+CONF_CF_AUD = "cf_aud"
+CONF_CF_ACCESS = "use_cf_access"
+CF_ACCESS_HEADER = "Cf-Access-Jwt-Assertion"
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -27,6 +35,15 @@ class HeaderAuthProvider(AuthProvider):
     """
 
     DEFAULT_TITLE = "Header Authentication"
+
+    def __init__(self, hass: HomeAssistant, store: AuthStore, config: dict[str, Any]) -> None:
+        super().__init__(hass, store, config)
+        cf_team = config[CONF_CF_TEAM]
+        self.cf_aud = config[CONF_CF_AUD]
+        if cf_team is not None:
+            self.cf_url = f'https://{cf_team}.cloudflareaccess.com'
+            jwk_uri = f'{self.cf_url}/cdn-cgi/access/certs'
+            self.jwk_set = PyJWKClient(uri=jwk_uri)
 
     @property
     def type(self) -> str:
@@ -50,7 +67,11 @@ class HeaderAuthProvider(AuthProvider):
                 [],
                 cast(IPAddress, context.get("conn_ip_address")),
             )
-        remote_user = request.headers[header_name].casefold()
+
+        if self.config[CONF_CF_ACCESS]:
+            remote_user = await self.validate_cf_token(request)
+        else:
+            remote_user = request.headers[header_name].casefold()
         # Translate username to id
         users = await self.store.async_get_users()
         available_users = [
@@ -64,7 +85,7 @@ class HeaderAuthProvider(AuthProvider):
         )
 
     async def async_user_meta_for_credentials(
-        self, credentials: Credentials
+            self, credentials: Credentials
     ) -> UserMeta:
         """Return extra user metadata for credentials.
 
@@ -73,7 +94,7 @@ class HeaderAuthProvider(AuthProvider):
         raise NotImplementedError
 
     async def async_get_or_create_credentials(
-        self, flow_result: Dict[str, str]
+            self, flow_result: Dict[str, str]
     ) -> Credentials:
         """Get credentials based on the flow result."""
         user_id = flow_result["user"]
@@ -103,22 +124,34 @@ class HeaderAuthProvider(AuthProvider):
             raise InvalidAuthError("trusted_proxies is not configured")
 
         if not any(
-            ip_addr in trusted_network
-            for trusted_network in self.hass.http.trusted_proxies
+                ip_addr in trusted_network
+                for trusted_network in self.hass.http.trusted_proxies
         ):
             _LOGGER.warning("Remote IP not in trusted proxies: %s", ip_addr)
             raise InvalidAuthError("Not in trusted_proxies")
+
+    async def validate_cf_token(self, request: Request) -> str:
+        token = request.headers[CF_ACCESS_HEADER]
+        _LOGGER.debug(f'Received token {token}')
+        header = jwt.get_unverified_header(token)
+        if self.cf_url is None:
+            raise "Please specify a CF team"
+        kid = header['kid']
+        jwk = await self.jwk_set.get_signing_key(kid)
+        _LOGGER.debug(f'Expected cf_urk: {self.cf_url}')
+        decoded_jwt = jwt.decode(token, jwk.key, issuer=self.cf_url, audience=self.cf_aud, algorithms=[header['alg']])
+        return decoded_jwt['email']
 
 
 class HeaderLoginFlow(LoginFlow):
     """Handler for the login flow."""
 
     def __init__(
-        self,
-        auth_provider: HeaderAuthProvider,
-        remote_user: str,
-        available_users: List[User],
-        ip_address: IPAddress,
+            self,
+            auth_provider: HeaderAuthProvider,
+            remote_user: str,
+            available_users: List[User],
+            ip_address: IPAddress,
     ) -> None:
         """Initialize the login flow."""
         super().__init__(auth_provider)
@@ -127,7 +160,7 @@ class HeaderLoginFlow(LoginFlow):
         self._ip_address = ip_address
 
     async def async_step_init(
-        self, user_input: Optional[Dict[str, str]] = None
+            self, user_input: Optional[Dict[str, str]] = None
     ) -> Dict[str, Any]:
         """Handle the step of the form."""
         try:
