@@ -13,6 +13,7 @@ from homeassistant.components.auth import indieauth
 from homeassistant.components.auth.login_flow import LoginFlowIndexView
 from homeassistant.components.http.ban import log_invalid_auth
 from homeassistant.components.http.data_validator import RequestDataValidator
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.core import HomeAssistant
 from homeassistant.components.frontend import add_extra_js_url
 
