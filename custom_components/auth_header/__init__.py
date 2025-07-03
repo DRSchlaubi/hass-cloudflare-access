@@ -70,9 +70,13 @@ async def async_setup(hass: HomeAssistant, config):
     )
 
     # Load script to store tokens in local storage, else we'll re-auth on every browser refresh.
-    hass.http.register_static_path(
-        "/auth_header/store-token.js",
-        os.path.join(os.path.dirname(__file__), 'store-token.js'),
+    await hass.http.async_register_static_paths([
+            StaticPathConfig(
+                "/auth_header/store-token.js",
+                os.path.join(os.path.dirname(__file__), 'store-token.js'),
+                True
+            )
+        ]
     )
     add_extra_js_url(hass, '/auth_header/store-token.js')
 

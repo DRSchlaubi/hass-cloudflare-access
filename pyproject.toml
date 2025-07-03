@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "hass-auth-header"
-version = "0.1.0"
+version = "0.2.0"
 description = ""
 authors = ["Jens Langhammer <jens.langhammer@beryju.org>"]
 license = "GPL"
@@ -9,7 +9,7 @@ license = "GPL"
 python = ">=3.12.0,<3.13"
 
 [tool.poetry.dev-dependencies]
-homeassistant = "^2024.7"
+homeassistant = "^2025.7"
 pylint = "*"
 black = "*"
 isort = "*"
